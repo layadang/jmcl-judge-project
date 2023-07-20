@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import StaleElementReferenceException
 
 from selenium.webdriver.chrome.options import Options
 
@@ -19,11 +20,7 @@ def driver_setup():
 
     return driver
 
-df = pd.read_csv("/Users/phuongdang/Desktop/jmcl-judge-project/california/judge_names_current.csv")
-last_names = df['last_name'].values
-first_names = df['first_name'].values
-
-def send_search(last, first):
+def send_search(driver, last, first):
 
     driver.implicitly_wait(10)
 
@@ -47,52 +44,71 @@ def send_search(last, first):
 
     driver.implicitly_wait(40) # wait for results to load
 
+    downloaded_years = []
+    focused_years = ["2022", "2021", "2020"] # years this project is focusing on
+
     # locate results table with pdfs
-    form_table = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div/table[3]/tbody/tr/td/table[1]/tbody')
-    rows = form_table.find_elements(By.XPATH, "./tr")
+    for i in range(3):
+        print(i)
+        form_table = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div/table[3]/tbody/tr/td/table[1]/tbody')
+        rows = form_table.find_elements(By.XPATH, "./tr")
+        driver.implicitly_wait(30)
 
-    driver.implicitly_wait(30)
+        for row in rows[1:]: # skip first title row
+            cells = row.find_elements(By.TAG_NAME, "td")
+            # i = 1 year index
+            year = cells[1].text.strip()
 
-    for row in rows:
-        cells = row.find_elements(By.XPATH, "./td")
-        for i in range(len(cells)):
-            if (i == 1): # year index
-                if (cells[i].text == "2022" or cells[i].text == "2021" or cells[i].text == "2020"): 
+            print("now running " + year)
 
-                    link = cells[i + 5].find_element(By.TAG_NAME, 'a') # pdf viewer button
-                    link.click()
-                    driver.implicitly_wait(30)
+            if year in downloaded_years:
+                print(year + " already downloaded")
+                continue
 
-                    # Download pdf:
-                    iframe = driver.find_element(By.CSS_SELECTOR, "#ctl00_GenericPopupSizeable_InnerPopupControl_CIF-1")
-                    driver.switch_to.frame(iframe)
-
-                    download_link = driver.find_element(By.XPATH, "/html/body/form/div[3]/table/tbody/tr[2]/td/div/div[4]/object/font/a[3]").get_attribute('href')
-                    print(download_link)
-                    driver.get(download_link)
-
-                    driver.switch_to.parent_frame()
-                    time.sleep(5)
-
-                    # Close pdf window:
-                    close_pdf_button = driver.find_element(By.XPATH, "/html/body/form/div[5]/div[1]/div/div[1]/div[1]/a")
-                    close_pdf_button.click()
-                    time.sleep(5)
-
+            if (year in focused_years): 
+                print("downloading " + year)
+                download_pdf(driver, cells)
+                downloaded_years.append(year)
+                break
+            
     return
 
+def download_pdf(driver, cells):
+    link = cells[1 + 5].find_element(By.TAG_NAME, 'a') # pdf viewer button
+    link.click()
+    driver.implicitly_wait(30)
+
+    # Download pdf:
+    iframe = driver.find_element(By.CSS_SELECTOR, "#ctl00_GenericPopupSizeable_InnerPopupControl_CIF-1")
+    driver.switch_to.frame(iframe)
+
+    download_link = driver.find_element(By.XPATH, "/html/body/form/div[3]/table/tbody/tr[2]/td/div/div[4]/object/font/a[3]").get_attribute('href')
+    driver.get(download_link)
+
+    driver.switch_to.default_content()
+    time.sleep(3) # to finish the download
+    driver.implicitly_wait(10)
+
+    # Close pdf window:
+    close_pdf_button = driver.find_element(By.XPATH, "/html/body/form/div[5]/div[1]/div/div[1]/div[1]/a")
+    close_pdf_button.click()
+
+    driver.implicitly_wait(10)
+
 def main():
-    current_button = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div[1]/table/tbody/tr[2]/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]')
-    current_button.click()
+    df = pd.read_csv("/Users/phuongdang/Desktop/jmcl-judge-project/california/judge_names_current.csv")
+    last_names = df['last_name'].values
+    first_names = df['first_name'].values
 
-    # for i in range(len(last_names)):
-    #     print( last_names[i] + " " + first_names[i])
+    for i in range(5):
+        driver = driver_setup() # new driver for each search
 
-    # time.sleep(2)
-    # send_search(last_names[0], first_names[0])
+        current_button = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div[1]/table/tbody/tr[2]/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]')
+        current_button.click()
 
-    send_search("Abdallah", "George")
+        print("now running " + last_names[i] + " " + first_names[i])
+        send_search(driver, last_names[i], first_names[i])
+        driver.close()
 
-driver = driver_setup()
 # call to main
 main()
