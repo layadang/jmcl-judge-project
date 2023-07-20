@@ -48,8 +48,7 @@ def send_search(driver, last, first):
     focused_years = ["2022", "2021", "2020"] # years this project is focusing on
 
     # locate results table with pdfs
-    for i in range(3):
-        print(i)
+    for _ in range(6):
         form_table = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div/table[3]/tbody/tr/td/table[1]/tbody')
         rows = form_table.find_elements(By.XPATH, "./tr")
         driver.implicitly_wait(30)
@@ -59,14 +58,14 @@ def send_search(driver, last, first):
             # i = 1 year index
             year = cells[1].text.strip()
 
-            print("now running " + year)
+            # print("now running " + year)
 
             if year in downloaded_years:
-                print(year + " already downloaded")
+                # print(year + " already downloaded")
                 continue
 
             if (year in focused_years): 
-                print("downloading " + year)
+                # print("downloading " + year)
                 download_pdf(driver, cells)
                 downloaded_years.append(year)
                 break
@@ -100,7 +99,7 @@ def main():
     last_names = df['last_name'].values
     first_names = df['first_name'].values
 
-    for i in range(5):
+    for i in range(10, 15):
         driver = driver_setup() # new driver for each search
 
         current_button = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div[1]/table/tbody/tr[2]/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]')
@@ -108,6 +107,7 @@ def main():
 
         print("now running " + last_names[i] + " " + first_names[i])
         send_search(driver, last_names[i], first_names[i])
+        time.sleep(10) # just to make sure download is finished
         driver.close()
 
 # call to main
