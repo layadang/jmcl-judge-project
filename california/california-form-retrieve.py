@@ -1,6 +1,8 @@
 import time
+import csv
 import pandas as pd
 
+from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -12,7 +14,9 @@ from selenium.webdriver.chrome.options import Options
 
 def driver_setup():
     chrome_options = Options()
-    prefs = {"download.default_directory": "/Users/phuongdang/Desktop/jmcl-judge-project/california/forms"}
+    ### CHANGE DOWNLOAD LOCATION TO FULL PATH OF LOCAL MACHINE
+    prefs = {"download.default_directory": '/Users/phuongdang/Desktop/jmcl-judge-project/california/forms'}
+    ####
     chrome_options.add_experimental_option("prefs", prefs)
 
     driver = webdriver.Chrome(options=chrome_options)
@@ -46,6 +50,7 @@ def send_search(driver, last, first):
 
     downloaded_years = []
     focused_years = ["2022", "2021", "2020"] # years this project is focusing on
+    all_years = []
 
     # locate results table with pdfs
     for _ in range(6):
@@ -57,7 +62,7 @@ def send_search(driver, last, first):
             cells = row.find_elements(By.TAG_NAME, "td")
             # i = 1 year index
             year = cells[1].text.strip()
-
+            all_years.append(year)
             # print("now running " + year)
 
             if year in downloaded_years:
@@ -69,8 +74,13 @@ def send_search(driver, last, first):
                 download_pdf(driver, cells)
                 downloaded_years.append(year)
                 break
-            
-    return
+
+    # check for duplicates
+    if len(all_years) != len(set(all_years)):
+        # if duplicated, add name to check later:
+        with open('names_to_check.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([last, first])
 
 def download_pdf(driver, cells):
     link = cells[1 + 5].find_element(By.TAG_NAME, 'a') # pdf viewer button
@@ -95,20 +105,22 @@ def download_pdf(driver, cells):
     driver.implicitly_wait(10)
 
 def main():
-    df = pd.read_csv("/Users/phuongdang/Desktop/jmcl-judge-project/california/judge_names_current.csv")
+    df = pd.read_csv(Path('california/judge_names_current.csv'))
     last_names = df['last_name'].values
     first_names = df['first_name'].values
 
-    for i in range(10, 15):
+    ## CHANGE THIS RANGE FOR EACH NAME ##
+    for i in range(200, 250):
+    ####
+        print("now running " + last_names[i] + " " + first_names[i])
         driver = driver_setup() # new driver for each search
 
         current_button = driver.find_element(By.XPATH, '/html/body/form/table[1]/tbody/tr/td/table/tbody/tr[4]/td/div/div/div[1]/table/tbody/tr[2]/td[2]/table/tbody/tr/td/table/tbody/tr/td[1]')
         current_button.click()
 
-        print("now running " + last_names[i] + " " + first_names[i])
         send_search(driver, last_names[i], first_names[i])
-        time.sleep(10) # just to make sure download is finished
+        input("next?") # just to make sure download is finished
         driver.close()
 
-# call to main
+# run main:
 main()
